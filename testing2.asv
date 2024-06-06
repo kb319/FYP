@@ -1,0 +1,68 @@
+clear all;
+close all;
+clc; 
+
+sim_days = 4;
+Ts = 0.5; % 1/amount of samples per hour
+n = 24/Ts*sim_days; % sim length in points
+horz_length_days = 2;
+%N = horz_length_days/sim_days*n; % horizon, so 48 is 24hrs
+
+C_a = 30; % adjust so loss is around 1 degree an hour with no input at day peak
+U_a = 0.5;
+C_h = 5;
+U_h = 2;
+
+
+tspan = linspace(0,sim_days*24*60*60,n); %1 minute intervals
+
+outdoor_temp = readtable('weather_thirtymin.csv');
+outdoor_temp = table2array(outdoor_temp(1,:));
+T_o = outdoor_temp(1:n);
+
+
+
+
+
+
+%% home RC model and discretising
+T_s = Ts;
+
+
+A_home = [-U_a/C_a 0; U_h/C_h -U_h/C_h];
+B_home = [U_a/C_a 0; 0 1/C_h];
+
+syshome = idss(A_home,B_home,[],[],[],[],0);
+syshome_disc = c2d(syshome,T_s,'zoh');
+
+initial_indoor_temp = 21;
+
+
+initial_flow_temp =40;
+
+
+
+A_home_disc = syshome_disc.A;
+B_home_disc = syshome_disc.B;
+A = A_home_disc;
+B = B_home_disc;
+%initial state
+x1_o = [initial_indoor_temp initial_flow_temp];
+    T_in_plot = [x1_o(1)];
+    T_flow_plot = [x1_o(2)];
+Q_HP = 11*ones(1,191);
+for i = 1:191
+
+
+    y = A*x1_o'+B*[T_o(i) Q_HP(i)]';
+
+    x1_o = y';
+
+    T_in_plot = [T_in_plot x1_o(1)];
+    T_flow_plot = [T_flow_plot x1_o(2)];
+end
+
+hold on
+plot(1:192,T_o)
+plot(1:192, T_in_plot);
+plot(1:192, T_flow_plot);
